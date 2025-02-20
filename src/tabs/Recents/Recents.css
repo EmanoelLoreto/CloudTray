@@ -1,0 +1,112 @@
+.recent-files-list-header {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+    margin: 15px 0px;
+    height: 30px;
+}
+
+.recent-files-list-header h3 {
+	font-size: 16px;
+	font-weight: 600;
+	color: #fff;
+	margin: 0px 7px 0px 6px;
+}
+
+.recent-files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    margin-bottom: 10px;
+}
+
+.recent-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 15px 12px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 7px;
+    transition: all 0.2s ease;
+    overflow: hidden;
+    max-height: 15px;
+}
+
+.recent-file-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.recent-file-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+}
+
+.copy-link-button {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #fff;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.copy-link-button:hover {
+    background-color: #007AFF;
+    border-color: #007AFF;
+}
+
+.loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+}
+
+.loading-container p {
+    font-size: 14px;
+    font-weight: 500;
+    color: #fff;
+    opacity: 0.8;
+    margin: 0px;
+    user-select: none;
+}
+
+.loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-left-color: #007AFF;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.buttons-container-file-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.delete-button {
+    background-color: transparent;
+    border: none;
+    padding: 4px 4px;
+    border-radius: 7px;
+}
+
+.delete-button:hover {
+    background: radial-gradient(circle at center, rgba(255, 0, 47, 0.65) 0%, transparent 100%);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+}

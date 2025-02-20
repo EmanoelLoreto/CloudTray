@@ -1,0 +1,47 @@
+.container-settings {
+    justify-content: flex-start;
+    padding: 15px 6px;
+    height: 80%;
+}
+
+.settings-header {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+    margin-bottom: 40px;
+}
+
+.settings-header h3 {
+	font-size: 16px;
+	font-weight: 600;
+	color: #fff;
+	margin: 0px 0px 0px 6px;
+}
+
+.select-container {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 4px;
+}
+
+.select-label {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.is-windows .select-select {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #fff;
+    font-size: 14px;
+    color: #333;
+    transition: border-color 0.3s;
+}
+
+.is-windows .select-select:focus {
+    border-color: #007bff;
+    outline: none;
+}

@@ -1,0 +1,47 @@
+{
+  "app": {
+    "selectFile": "Select files",
+    "recentUploads": "Recent uploads",
+    "about": "About",
+    "close": "Close",
+    "settings": "Settings",
+    "logout": "Logout",
+    "quit": "Quit",
+    "copyLink": "Copy link",
+    "copiedLink": "Link copied to clipboard",
+    "uploading": "Uploading...",
+    "uploadSuccess": "File uploaded successfully!",
+    "uploadsSuccess": "Files uploaded successfully!",
+    "uploadError": "Error uploading files. Please try again.",
+    "startUpload": "Start upload...",
+    "dragFilesHere": "Drag and drop files here...",
+    "checkingAuth": "Checking authentication...",
+    "loginWithGoogleDrive": "Login with Google Drive"
+  },
+  "settings": {
+    "settings": "Settings",
+    "timeExpiration": "Time to file expiration",
+    "openGoogle": "Open Google Drive folder",
+    "changeLanguage": "Clique para alterar o idioma",
+    "oneHour": "1 hour",
+    "threeHours": "3 hours",
+    "twelveHours": "12 hours",
+    "oneDay": "1 day",
+    "twoDays": "2 days",
+    "threeDays": "3 days"
+  },
+  "recents": {
+    "recents": "Recent uploads",
+    "copied": "Copied!",
+    "copyLink": "Copy Link",
+    "loading": "Loading recent uploads...",
+    "noRecentUploads": "No recent uploads"
+  },
+  "about": {
+    "about": "About",
+    "aboutContent": "CloudTray was created to solve a common problem: the need to share files quickly and effortlessly. With direct integration to Google Drive, CloudTray allows you to upload and share files in just a few clicks, making your daily tasks faster and more productive.",
+    "aboutContent2": "The project was based on the ",
+    "aboutContent2.2": "developed by Diego in the Rocketseat channel, just changing some aspects to make integration simpler and easier for any user to configure.",
+    "aboutContent3": "The CloudTray is an open source project, you can contribute to the project on "
+  }
+}

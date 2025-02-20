@@ -1,0 +1,89 @@
+{
+  "$schema": "https://schema.tauri.app/config/1",
+  "build": {
+    "beforeDevCommand": "yarn dev",
+    "beforeBuildCommand": "yarn build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "CloudTray",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      },
+      "dialog": {
+        "all": false,
+        "ask": false,
+        "confirm": false,
+        "message": false,
+        "open": true,
+        "save": false
+      },
+      "fs": {
+        "scope": [
+          "$APPCONFIG/",
+          "$APPCONFIG/*",
+          "$APPCONFIG/config",
+          "$APPCONFIG/config/*",
+          "$APPCONFIG/config/google_tokens.json"
+        ],
+        "all": false,
+        "readFile": true,
+        "writeFile": true,
+        "readDir": true,
+        "createDir": true,
+        "exists": true
+      }
+    },
+    "windows": [
+      {
+        "fullscreen": false,
+        "resizable": false,
+        "title": "cloudtray",
+        "hiddenTitle": true,
+        "titleBarStyle": "Overlay",
+        "alwaysOnTop": true,
+        "closable": false,
+        "minimizable": false,
+        "decorations": false,
+        "focus": false,
+        "transparent": true,
+        "fileDropEnabled": false,
+        "width": 280,
+        "height": 360,
+        "skipTaskbar": true,
+        "label": "tray-window",
+        "visible": false
+      }
+    ],
+    "macOSPrivateApi": true,
+    "security": {
+      "csp": null
+    },
+    "systemTray": {
+      "iconPath": "icons/icon-tray-2.png",
+      "iconAsTemplate": true,
+      "menuOnLeftClick": false
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["dmg", "app", "deb", "rpm", "msi"],
+      "identifier": "com.cloudtray.app",
+      "icon": [
+        "icons/icon.ico",
+        "icons/icon.icns",
+        "icons/icon-512.png"
+      ],
+      "resources": [],
+      "copyright": "© 2025",
+      "category": "Utility",
+      "shortDescription": "CloudTray App"
+    }
+  }
+}

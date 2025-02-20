@@ -1,0 +1,43 @@
+.container-about {
+    justify-content: flex-start;
+    padding: 15px 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 90%;
+}
+
+.about-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 15px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+.about-header h3 {
+	font-size: 16px;
+	font-weight: 600;
+	color: #fff;
+	margin: 0px 0px 0px 6px;
+}
+
+.about-content {
+    font-size: 14px;
+    text-align: justify;
+    line-height: 20px;
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 6px;
+}
+
+.about-content a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+.about-content a:hover {
+    text-decoration: underline; 
+}

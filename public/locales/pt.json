@@ -1,0 +1,47 @@
+{
+  "app": {
+    "selectFile": "Selecionar arquivos",
+    "recentUploads": "Uploads recentes",
+    "about": "Sobre",
+    "close": "Fechar",
+    "settings": "Configurações",
+    "logout": "Deslogar",
+    "quit": "Sair",
+    "copyLink": "Copiar link",
+    "copiedLink": "Link copiado para o clipboard",
+    "uploading": "Enviando...",
+    "uploadSuccess": "Upload realizados com sucesso!",
+    "uploadsSuccess": "Uploads realizados com sucesso!",
+    "uploadError": "Erro ao enviar os arquivos. Por favor, tente novamente.",
+    "startUpload": "Iniciar upload...",
+    "dragFilesHere": "Arraste e solte os arquivos aqui...",
+    "checkingAuth": "Verificando autenticação...",
+    "loginWithGoogleDrive": "Login com Google Drive"
+  },
+  "settings": {
+    "settings": "Configurações",
+    "timeExpiration": "Expiração dos arquivos",
+    "openGoogle": "Abrir pasta do Google Drive",
+    "changeLanguage": "Click to change the language",
+    "oneHour": "1 hora",
+    "threeHours": "3 horas",
+    "twelveHours": "12 horas",
+    "oneDay": "1 dia",
+    "twoDays": "2 dias",
+    "threeDays": "3 dias"
+  },
+  "recents": {
+    "recents": "Uploads recentes",
+    "copied": "Copiado!",
+    "copyLink": "Copiar link",
+    "loading": "Carregando uploads recentes...",
+    "noRecentUploads": "Nenhum upload recente"
+  },
+  "about": {
+    "about": "Sobre",
+    "aboutContent": "O CloudTray surgiu para resolver um problema comum: a necessidade de compartilhar arquivos de forma rápida e descomplicada. Com integração direta ao Google Drive, o CloudTray permite que você faça upload e compartilhe arquivos em poucos cliques, tornando seu dia a dia mais ágil e produtivo.",
+    "aboutContent2": "O projeto foi baseado no ",
+    "aboutContent2.2": "desenvolvido pelo Diego no canal da Rocketseat, apenas mudando alguns aspectos para que tenha uma integração mais simples e fácil de qualquer usuário configurar.",
+    "aboutContent3": "O CloudTray é um projeto open source, você pode contribuir com o projeto no "
+  }
+}
