@@ -150,3 +150,9 @@ Quer ajudar a melhorar o CloudTray? Siga os passos abaixo:
 🐙 GitHub: [EmanoelLoreto](https://github.com/EmanoelLoreto)
 
 Se tiver dúvidas ou sugestões, sinta-se à vontade para abrir uma issue! 😊
+
+<br />
+
+## 📜 Legal
+- [Política de Privacidade](https://emanoelloreto.github.io/CloudTray/privacy-policy.html)
+- [Termos de Serviço](https://emanoelloreto.github.io/CloudTray/terms-of-service.html)
