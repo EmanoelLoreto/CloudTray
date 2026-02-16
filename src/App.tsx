@@ -204,7 +204,7 @@ const App = () => {
 
 	const handleGoogleLogin = async () => {
 		try {
-			await emit("close");
+			setCheckingAuth(true);
 			const port = await invoke<number>("start_oauth_server");
 			const redirectUri = `${GOOGLE_REDIRECT_URI}:${port}`;
 
@@ -214,6 +214,15 @@ const App = () => {
 				
 				if (code) {
 					try {
+						if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+							throw new Error("Google credentials not configured");
+						}
+						
+						await invoke("set_google_credentials", {
+							clientId: GOOGLE_CLIENT_ID,
+							clientSecret: GOOGLE_CLIENT_SECRET
+						});
+						
 						const tokens = await invoke<GoogleTokens>("exchange_auth_code", {
 							code,
 							redirectUri
@@ -222,16 +231,19 @@ const App = () => {
 						try {
 							await invoke("save_tokens", { tokens });
 							setIsAuthenticated(true);
-							setCheckingAuth(false);
 							await emit("open");
 						} catch (error) {
 							console.error("Erro ao salvar tokens:", error);
+							await emit("open");
 						}
 					} catch (error) {
-						console.error("Erro detalhado:", error);
+						await emit("open");
 					}
+				} else {
+					await emit("open");
 				}
 				
+				setCheckingAuth(false);
 				unlisten();
 			});
 
@@ -243,9 +255,11 @@ const App = () => {
 				`scope=${scope}&` +
 				`access_type=offline`;
 
+			await emit("close");
 			await openShell(authUrl);
 		} catch (error) {
 			console.error("Erro na autenticação:", error);
+			setCheckingAuth(false);
 		}
 	};
 
@@ -395,7 +409,7 @@ const App = () => {
 				<Separator />
 
 				<Button onClick={() => emit("close")} label={t('app.close')} hotkey="mod+c" />
-				{isAuthenticated && <Button onClick={() => setTab('settings')} label={t('app.settings')} hotkey="mod+s" />}
+				<Button onClick={() => setTab('settings')} label={t('app.settings')} hotkey="mod+s" />
 				{isAuthenticated && <Button onClick={handleLogout} label={t('app.logout')} hotkey="mod+l" />}
 				<Button onClick={() => emit("quit")} label={t('app.quit')} hotkey="mod+q" />
 			</div>

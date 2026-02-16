@@ -13,7 +13,10 @@ use tauri::State;
 #[command]
 pub async fn start_oauth_server(window: tauri::Window) -> Result<u16, String> {
 		start(move |url| {
-				let _ = window.emit("oauth_callback", url);
+				let _ = window.show();
+				let _ = window.set_focus();
+				std::thread::sleep(std::time::Duration::from_millis(100));
+				let _ = window.emit("oauth_callback", url.clone());
 		})
 		.map_err(|err| err.to_string())
 }
@@ -46,7 +49,7 @@ pub async fn exchange_auth_code(
 				.map_err(|e| format!("Erro ao ler resposta: {}", e))?;
 		
 		serde_json::from_str(&response_text)
-				.map_err(|e| format!("Erro ao parsear JSON: {}", e))
+				.map_err(|e| format!("Erro ao parsear JSON: {} - Response: {}", e, response_text))
 }
 
 #[command]
