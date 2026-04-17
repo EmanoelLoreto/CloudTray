@@ -335,14 +335,25 @@ const App = () => {
 									{Object.entries(uploadProgress).map(([fileName, progress]) => (
 										<div key={fileName} className="upload-progress">
 											<span className="filename">
-												{fileName.length > 13 ? fileName.slice(0, 13) + '...' : fileName}
+												{fileName.length > 24 ? fileName.slice(0, 24) + '...' : fileName}
 											</span>
 											<div className="progress-bar">
 												<div
-													className={`progress-fill ${progress.percent < 100 ? 'animating' : 'success'}`}
-													style={{ width: `${progress.percent}%` }}
+													className={`progress-fill ${
+														progress.error ? 'error' :
+														progress.percent >= 100 ? 'success' :
+														progress.percent === 0 ? 'indeterminate' : ''
+													}`}
+													style={{ width: progress.percent === 0 ? '100%' : `${progress.percent}%` }}
 												/>
 											</div>
+											{progress.total_bytes > 0 && progress.percent < 100 && !progress.error && (
+												<div className="progress-info">
+													<span>{progress.percent}%</span>
+													<span>{formatSpeed(progress.speed_bps)}</span>
+													<span>{formatETA(progress.bytes_sent, progress.total_bytes, progress.speed_bps)}</span>
+												</div>
+											)}
 										</div>
 									))}
 								</div>
