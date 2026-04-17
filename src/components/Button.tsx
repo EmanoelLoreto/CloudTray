@@ -32,7 +32,7 @@ const Button = ({
 			onClick();
 		},
 		{
-			enabled: Boolean(hotkey),
+			enabled: Boolean(hotkey) && !disabled,
 			preventDefault: true,
 		}
 	);

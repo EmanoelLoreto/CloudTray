@@ -78,6 +78,8 @@ const App = () => {
 
 	const [isDragActive, setIsDragActive] = useState(false);
 
+	const isUploading = Object.keys(uploadProgress).length > 0;
+
 	const uploadFiles = async (filePaths: string[]) => {
         let unlisten: (() => void) | undefined;
         try {
@@ -387,6 +389,7 @@ const App = () => {
 						label={t('app.selectFile')}
 						hotkey="mod+o"
 						icon={<img src={fileSearch} alt="Select file" className="icon-button" />}
+						disabled={isUploading}
 					/>
 
 					<Button
@@ -394,19 +397,20 @@ const App = () => {
 						label={t('app.recentUploads')}
 						hotkey="mod+r"
 						icon={<img src={recent} alt="Recent uploads" className="icon-button" />}
+						disabled={isUploading}
 					/>
 				</>
 			)}
 			<div>
 				<Separator />
 
-				<Button onClick={() => setTab('about')} label={t('app.about') + ' CloudTray'} />
+				<Button onClick={() => setTab('about')} label={t('app.about') + ' CloudTray'} disabled={isUploading} />
 
 				<Separator />
 
-				<Button onClick={() => emit("close")} label={t('app.close')} hotkey="mod+c" />
-				<Button onClick={() => setTab('settings')} label={t('app.settings')} hotkey="mod+s" />
-				{isAuthenticated && <Button onClick={handleLogout} label={t('app.logout')} hotkey="mod+l" />}
+				<Button onClick={() => emit("close")} label={t('app.close')} hotkey="mod+c" disabled={isUploading} />
+				<Button onClick={() => setTab('settings')} label={t('app.settings')} hotkey="mod+s" disabled={isUploading} />
+				{isAuthenticated && <Button onClick={handleLogout} label={t('app.logout')} hotkey="mod+l" disabled={isUploading} />}
 				<Button onClick={() => emit("quit")} label={t('app.quit')} hotkey="mod+q" />
 			</div>
 		</main>
