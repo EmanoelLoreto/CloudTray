@@ -432,132 +432,40 @@ pub async fn get_or_create_app_folder(credentials: State<'_, GoogleCredentials>)
 
 #[command]
 pub async fn upload_file_path(
-	window: tauri::Window,
-	file_path: String,
-	folder_id: String,
-	credentials: State<'_, GoogleCredentials>,
+    window: tauri::Window,
+    file_path: String,
+    folder_id: String,
+    credentials: State<'_, GoogleCredentials>,
 ) -> Result<DriveFile, String> {
-	let _ = delete_old_files(&folder_id, credentials.clone()).await;
+    let tokens_fut = get_tokens(credentials.clone());
+    let delete_fut = delete_old_files(&folder_id, credentials.clone());
+    let (tokens_result, _) = tokio::join!(tokens_fut, delete_fut);
+    let tokens = tokens_result?;
 
-	let file_content = tokio::fs::read(&file_path)
-		.await
-		.map_err(|e| format!("Erro ao ler arquivo: {}", e))?;
-	
-	let file_name = std::path::Path::new(&file_path)
-		.file_name()
-		.and_then(|name| name.to_str())
-		.ok_or("Nome do arquivo inválido")?
-		.to_string();
+    let file_name = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or("Nome do arquivo inválido")?
+        .to_string();
 
-	upload_file(window, file_content, file_name, folder_id, credentials).await
-}
+    let metadata = tokio::fs::metadata(&file_path)
+        .await
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?;
+    let file_size = metadata.len();
 
-#[command]
-pub async fn upload_file(
-	window: tauri::Window,
-	file_content: Vec<u8>,
-	file_name: String,
-	folder_id: String,
-	credentials: State<'_, GoogleCredentials>,
-) -> Result<DriveFile, String> {
-	let _ = delete_old_files(&folder_id, credentials.clone()).await;
+    const RESUMABLE_THRESHOLD: u64 = 5 * 1024 * 1024; // 5MB
 
-	let tokens = get_tokens(credentials).await?;
-	let client = reqwest::Client::new();
+    let file = if file_size >= RESUMABLE_THRESHOLD {
+        upload_resumable(&window, &file_path, &file_name, &folder_id, &tokens.access_token).await?
+    } else {
+        let file_content = tokio::fs::read(&file_path)
+            .await
+            .map_err(|e| format!("Erro ao ler arquivo: {}", e))?;
+        upload_multipart(&window, file_content, &file_name, &folder_id, &tokens.access_token).await?
+    };
 
-	let metadata = serde_json::json!({
-		"name": file_name,
-		"parents": [folder_id],
-	});
-
-	let mut headers = HeaderMap::new();
-	headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", tokens.access_token)).unwrap());
-
-	let mime_type = if file_name.to_lowercase().ends_with(".png") {
-		"image/png"
-	} else if file_name.to_lowercase().ends_with(".jpg") || file_name.to_lowercase().ends_with(".jpeg") {
-		"image/jpeg"
-	} else {
-		"application/octet-stream"
-	};
-
-	let boundary = "foo_bar_baz";
-	let metadata_part = format!(
-		"--{}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n",
-		boundary,
-		serde_json::to_string(&metadata).unwrap()
-	);
-	let file_part = format!(
-		"--{}\r\nContent-Type: {}\r\n\r\n",
-		boundary,
-		mime_type
-	);
-	let end_boundary = format!("\r\n--{}--", boundary);
-
-	let mut body = Vec::new();
-	body.extend_from_slice(metadata_part.as_bytes());
-	let _ = window.emit("upload-progress", (file_name.clone(), 10));
-
-	body.extend_from_slice(file_part.as_bytes());
-	let _ = window.emit("upload-progress", (file_name.clone(), 20));
-
-	let chunk_size = file_content.len() / 60;
-	if chunk_size > 0 {
-		for (i, chunk) in file_content.chunks(chunk_size).enumerate() {
-			body.extend_from_slice(chunk);
-			let progress = 20 + ((i as f64 / (file_content.len() as f64 / chunk_size as f64)) * 70.0) as u32;
-			let _ = window.emit("upload-progress", (file_name.clone(), progress));
-		}
-	} else {
-		body.extend_from_slice(&file_content);
-		let _ = window.emit("upload-progress", (file_name.clone(), 90));
-	}
-
-	body.extend_from_slice(end_boundary.as_bytes());
-
-	headers.insert(
-		CONTENT_TYPE,
-		HeaderValue::from_str(&format!("multipart/related; boundary={}", boundary)).unwrap()
-	);
-
-	let response = client
-		.post("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink")
-		.headers(headers.clone())
-		.body(body)
-		.send()
-		.await
-		.map_err(|e| {
-			e.to_string()
-		})?;
-
-	let _ = window.emit("upload-progress", (file_name.clone(), 100));
-
-	let response_text = response.text().await.map_err(|e| {
-		e.to_string()
-	})?;
-
-	if let Ok(file) = serde_json::from_str::<DriveFile>(&response_text) {
-		let permission_body = serde_json::json!({
-			"role": "reader",
-			"type": "anyone"
-		});
-
-		let permission_response = client
-			.post(&format!("https://www.googleapis.com/drive/v3/files/{}/permissions", file.id))
-			.headers(headers)
-			.json(&permission_body)
-			.send()
-			.await
-			.map_err(|e| format!("Erro ao definir permissões: {}", e))?;
-
-		if !permission_response.status().is_success() {
-			return Err("Falha ao definir permissões do arquivo".to_string());
-		}
-
-		Ok(file)
-	} else {
-		Err("Erro ao fazer parse do arquivo".to_string())
-	}
+    set_public_permission(&file.id, &tokens.access_token).await?;
+    Ok(file)
 }
 
 #[command]

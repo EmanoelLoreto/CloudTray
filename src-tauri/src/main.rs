@@ -162,7 +162,6 @@ fn main() {
             auth::save_tokens,
             auth::get_tokens,
             auth::logout,
-            drive::upload_file, 
             drive::get_or_create_app_folder,
             drive::upload_file_path,
             drive::list_recent_files,

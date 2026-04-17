@@ -15,7 +15,7 @@ tauri = { version = "1", features = [ "fs-create-dir", "fs-read-file", "fs-write
 tauri-plugin-positioner = { version = "1.0.4", features = ["system-tray"] }
 window-vibrancy = "0.4.0"
 window-shadows = "0.2.2"
-tokio = { version = "1.0", features = ["fs", "io-util", "time"] }
+tokio = { version = "1.0", features = ["fs", "io-util", "time", "macros"] }
 reqwest = { version = "0.11", features = ["json", "multipart"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
