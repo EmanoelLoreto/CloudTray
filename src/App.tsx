@@ -30,8 +30,36 @@ interface GoogleTokens {
 	token_type: string;
 }
 
+interface FileProgress {
+    bytes_sent: number;
+    total_bytes: number;
+    percent: number;
+    speed_bps: number;
+    error?: boolean;
+}
+
 interface UploadProgress {
-	[key: string]: number;
+    [fileName: string]: FileProgress;
+}
+
+interface DriveFile {
+    id: string;
+    name: string;
+    webViewLink: string;
+}
+
+export function formatSpeed(bps: number): string {
+    if (bps === 0) return '';
+    if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
+    if (bps >= 1024) return `${(bps / 1024).toFixed(1)} KB/s`;
+    return `${bps} B/s`;
+}
+
+export function formatETA(bytesSent: number, totalBytes: number, speedBps: number): string {
+    if (speedBps === 0 || bytesSent >= totalBytes) return '';
+    const remaining = (totalBytes - bytesSent) / speedBps;
+    if (remaining >= 60) return `~${Math.ceil(remaining / 60)}min`;
+    return `~${Math.ceil(remaining)}s`;
 }
 
 const App = () => {
@@ -49,94 +77,93 @@ const App = () => {
 
 	const [isDragActive, setIsDragActive] = useState(false);
 
+	const uploadFiles = async (filePaths: string[]) => {
+        let unlisten: (() => void) | undefined;
+        try {
+            const appFolder = await invoke<{ id: string; name: string }>("get_or_create_app_folder");
+
+            const initialProgress: UploadProgress = {};
+            filePaths.forEach(fp => {
+                const name = fp.split(/[/\\]/).pop() || fp;
+                initialProgress[name] = { bytes_sent: 0, total_bytes: 0, percent: 0, speed_bps: 0 };
+            });
+            setUploadProgress(initialProgress);
+
+            unlisten = await listen<FileProgress & { file_name: string }>("upload-progress", (event) => {
+                const { file_name, bytes_sent, total_bytes, percent, speed_bps } = event.payload;
+                setUploadProgress(prev => ({
+                    ...prev,
+                    [file_name]: { bytes_sent, total_bytes, percent, speed_bps },
+                }));
+            });
+
+            const isSingleFile = filePaths.length === 1;
+            let lastResult: DriveFile | undefined;
+
+            for (const filePath of filePaths) {
+                try {
+                    const result = await invoke<DriveFile>("upload_file_path", {
+                        filePath,
+                        folderId: appFolder.id,
+                    });
+                    if (isSingleFile) lastResult = result;
+                } catch {
+                    const name = filePath.split(/[/\\]/).pop() || filePath;
+                    setUploadProgress(prev => ({
+                        ...prev,
+                        [name]: { ...prev[name], error: true },
+                    }));
+                }
+            }
+
+            if (isSingleFile && lastResult) {
+                setUploadFeedback({ type: 'success', message: t('app.uploadSuccess') });
+                await navigator.clipboard.writeText(lastResult.webViewLink);
+                setCopiedId(lastResult.id);
+                setTimeout(() => setCopiedId(null), 5000);
+            } else {
+                setUploadFeedback({ type: 'success', message: t('app.uploadsSuccess') });
+            }
+
+            setTimeout(() => {
+                setUploadProgress({});
+                setUploadFeedback(null);
+            }, 5000);
+        } catch {
+            setUploadProgress({});
+            setUploadFeedback({ type: 'error', message: t('app.uploadError') });
+            setTimeout(() => setUploadFeedback(null), 5000);
+        } finally {
+            unlisten?.();
+        }
+    };
+
 	const handleFileSelect = async () => {
-		try {
-			const selected = await openDialog({
-				multiple: true,
-				filters: [{
-					name: 'All Files',
-					extensions: [
-						// Imagens
-						'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'tiff', 'ico', 'raw', 'heic',
-						// Vídeos
-						'mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'm4v', '3gp',
-						// Áudios
-						'mp3', 'wav', 'ogg', 'aac', 'wma', 'm4a', 'flac',
-						// Documentos
-						'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'csv',
-						// Arquivos compactados
-						'zip', 'rar', '7z', 'tar', 'gz',
-						// Outros
-						'json', 'yaml', 'yml', 'toml', 'ini', 'conf', 'cfg', 'config', 'sql',
-					]
-				}]
-			});
-			
-			if (selected) {
-				const appFolder = await invoke<{ id: string, name: string }>("get_or_create_app_folder");
-				const selectedFiles = Array.isArray(selected) ? selected : [selected];
-	
-				const initialProgress: UploadProgress = {};
-				selectedFiles.forEach(filePath => {
-					const fileName = filePath.split(/[/\\]/).pop() || filePath;
-					initialProgress[fileName] = 1;
-				});
-				setUploadProgress(initialProgress);
-	
-				const unlisten = await listen<[string, number]>("upload-progress", (event) => {
-					const [fileName, progress] = event.payload;
-					setUploadProgress(prev => ({
-						...prev,
-						[fileName]: progress
-					}));
-				});
+        try {
+            const selected = await openDialog({
+                multiple: true,
+                filters: [{
+                    name: 'All Files',
+                    extensions: [
+                        'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'tiff', 'ico', 'raw', 'heic',
+                        'mp4', 'avi', 'mov', 'wmv', 'flv', 'mkv', 'webm', 'm4v', '3gp',
+                        'mp3', 'wav', 'ogg', 'aac', 'wma', 'm4a', 'flac',
+                        'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'csv',
+                        'zip', 'rar', '7z', 'tar', 'gz',
+                        'json', 'yaml', 'yml', 'toml', 'ini', 'conf', 'cfg', 'config', 'sql',
+                    ]
+                }]
+            });
 
-				const isSingleFile = selectedFiles.length === 1;
-				let uploadResult;
-	
-				for (const filePath of selectedFiles) {
-					try {
-						const result = await invoke<{ id: string, name: string, webViewLink: string }>(
-							"upload_file_path",
-							{
-								filePath,
-								folderId: appFolder.id
-							}
-						);
-
-						if (isSingleFile) {
-							uploadResult = result;
-						}
-					}
-					catch (error) {
-						setUploadFeedback({ type: 'error', message: t('app.uploadError') });
-					}
-				}
-	
-				unlisten();
-
-				if (isSingleFile && uploadResult) {
-					setUploadFeedback({ type: 'success', message: t('app.uploadSuccess') });
-					await navigator.clipboard.writeText(uploadResult.webViewLink);
-					setCopiedId(uploadResult.id);
-					setTimeout(() => setCopiedId(null), 5000);
-				} else {
-					setUploadFeedback({ type: 'success', message: t('app.uploadsSuccess') });
-				}
-
-				setTimeout(() => {
-					setUploadProgress({});
-					setUploadFeedback(null);
-				}, 5000);
-			}
-		} catch (err) {
-			setUploadProgress({});
-			setUploadFeedback({ type: 'error', message: t('app.uploadError') });
-			setTimeout(() => {
-				setUploadFeedback(null);
-			}, 5000);
-		}
-	};
+            if (selected) {
+                const paths = Array.isArray(selected) ? selected : [selected];
+                await uploadFiles(paths);
+            }
+        } catch {
+            setUploadFeedback({ type: 'error', message: t('app.uploadError') });
+            setTimeout(() => setUploadFeedback(null), 5000);
+        }
+    };
 
 	const handleGoogleLogin = async () => {
 		try {
@@ -311,9 +338,9 @@ const App = () => {
 												{fileName.length > 13 ? fileName.slice(0, 13) + '...' : fileName}
 											</span>
 											<div className="progress-bar">
-												<div 
-													className={`progress-fill ${progress < 100 ? 'animating' : 'success'}`}
-													style={{ width: `${progress}%` }}
+												<div
+													className={`progress-fill ${progress.percent < 100 ? 'animating' : 'success'}`}
+													style={{ width: `${progress.percent}%` }}
 												/>
 											</div>
 										</div>
