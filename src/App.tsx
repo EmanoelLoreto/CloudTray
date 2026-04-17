@@ -66,6 +66,7 @@ const App = () => {
 	const { t } = useTranslation();
 
 	const checkingAuthRef = useRef(false);
+	const isAuthenticatedRef = useRef(false);
 
 	const [checkingAuth, setCheckingAuth] = useState(false);
 	const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -194,6 +195,7 @@ const App = () => {
 						try {
 							await invoke("save_tokens", { tokens });
 							setIsAuthenticated(true);
+							isAuthenticatedRef.current = true;
 							await emit("open");
 						} catch (error) {
 							console.error("Erro ao salvar tokens:", error);
@@ -240,9 +242,11 @@ const App = () => {
 
 				await invoke("get_tokens");
 				setIsAuthenticated(true);
+				isAuthenticatedRef.current = true;
 				setCheckingAuth(false);
 			} catch (error) {
 				setIsAuthenticated(false);
+				isAuthenticatedRef.current = false;
 				setCheckingAuth(false);
 			}
 		};
@@ -258,7 +262,7 @@ const App = () => {
 				setIsDragActive(true);
 			} else if (event.payload.type === 'drop') {
 				setIsDragActive(false);
-				if (isAuthenticated && event.payload.paths.length > 0) {
+				if (isAuthenticatedRef.current && event.payload.paths.length > 0) {
 					uploadFiles(event.payload.paths);
 				}
 			} else {
@@ -274,6 +278,7 @@ const App = () => {
 	const handleLogout = async () => {
 		await invoke("logout");
 		setIsAuthenticated(false);
+		isAuthenticatedRef.current = false;
 	};
 
 	const handleCopyLink = async (link: string, id: string) => {

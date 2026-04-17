@@ -193,6 +193,11 @@ async fn upload_resumable(
         .await
         .map_err(|e| format!("Failed to read file metadata: {}", e))?;
     let file_size = metadata.len();
+
+    if file_size == 0 {
+        return Err("Cannot upload empty file".to_string());
+    }
+
     let mime_type = mime_type_for(file_name);
 
     let client = reqwest::Client::new();
@@ -346,6 +351,12 @@ async fn upload_multipart(
             speed_bps: 0,
         },
     );
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("Upload failed with status {}: {}", status, body));
+    }
 
     let response_text = response.text().await.map_err(|e| e.to_string())?;
     serde_json::from_str::<DriveFile>(&response_text)
