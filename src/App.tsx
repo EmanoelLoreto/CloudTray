@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useEffect, useRef, useState } from "react";
 
 import { invoke } from "@tauri-apps/api/tauri";
 import { emit, listen } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/api/dialog";
 import { open as openShell } from '@tauri-apps/api/shell';
+import { appWindow } from '@tauri-apps/api/window';
 
 import "./App.css";
 
@@ -47,71 +47,7 @@ const App = () => {
 	const [tab, setTab] = useState<'upload' | 'settings' | 'recents' | 'about'>('upload');
 	const [recentFiles, setRecentFiles] = useState<{ id: string, name: string, webViewLink: string }[]>([]);
 
-	const onDrop = useCallback(async (acceptedFiles: File[]) => {
-		try {
-			const appFolder = await invoke<{ id: string, name: string }>("get_or_create_app_folder");
-			
-			const initialProgress: UploadProgress = {};
-			acceptedFiles.forEach(file => {
-				initialProgress[file.name] = 1;
-			});
-			setUploadProgress(initialProgress);
-	
-			const unlisten = await listen<[string, number]>("upload-progress", (event) => {
-				const [fileName, progress] = event.payload;
-				setUploadProgress(prev => ({
-					...prev,
-					[fileName]: progress
-				}));
-			});
-
-			const isSingleFile = acceptedFiles.length === 1;
-			let uploadResult;
-	
-			for (const file of acceptedFiles) {
-				const result = await invoke<{ id: string, name: string, webViewLink: string }>(
-					"upload_file",
-					{
-						fileContent: Array.from(new Uint8Array(await file.arrayBuffer())),
-						fileName: file.name,
-						folderId: appFolder.id
-					}
-				);
-				
-				if (isSingleFile) {
-					uploadResult = result;
-				}
-			}
-	
-			unlisten();
-
-			if (isSingleFile && uploadResult) {
-				setUploadFeedback({ type: 'success', message: t('app.uploadSuccess') });
-				await navigator.clipboard.writeText(uploadResult.webViewLink);
-				setCopiedId(uploadResult.id);
-				setTimeout(() => setCopiedId(null), 5000);
-			} else {
-				setUploadFeedback({ type: 'success', message: t('app.uploadsSuccess') });
-			}
-	
-			setTimeout(() => {
-				setUploadProgress({});
-				setUploadFeedback(null);
-			}, 5000);
-		} catch (error) {
-			setUploadProgress({});
-			setUploadFeedback({ type: 'error', message: t('app.uploadError') });
-			setTimeout(() => {
-				setUploadFeedback(null);
-			}, 5000);
-		}
-	}, []);
-
-	const {
-		getRootProps,
-		getInputProps,
-		isDragActive
-	} = useDropzone({ onDrop, multiple: true, noClick: true, noKeyboard: true });
+	const [isDragActive, setIsDragActive] = useState(false);
 
 	const handleFileSelect = async () => {
 		try {
@@ -289,6 +225,23 @@ const App = () => {
 		}
 
 		checkAuth();
+
+		const unlistenFileDrop = appWindow.onFileDropEvent((event) => {
+			if (event.payload.type === 'hover') {
+				setIsDragActive(true);
+			} else if (event.payload.type === 'drop') {
+				setIsDragActive(false);
+				if (isAuthenticated && event.payload.paths.length > 0) {
+					uploadFiles(event.payload.paths);
+				}
+			} else {
+				setIsDragActive(false);
+			}
+		});
+
+		return () => {
+			unlistenFileDrop.then(fn => fn());
+		};
 	}, []);
 
 	const handleLogout = async () => {
@@ -338,8 +291,7 @@ const App = () => {
 			
 			{isAuthenticated && (
 				<>
-					<div {...getRootProps()} className={`drop-area ${isDragActive ? 'drop-area-active' : ''}`}>
-						<input {...getInputProps()} />
+					<div className={`drop-area ${isDragActive ? 'drop-area-active' : ''}`}>
 						{Object.entries(uploadProgress).length <= 0 && isDragActive && (
 							<p className="drop-area-text drag">{t('app.startUpload')}</p>
 						)}
