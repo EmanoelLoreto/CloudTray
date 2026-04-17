@@ -1,6 +1,7 @@
 use chrono::Utc;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use tokio::io::AsyncReadExt;
 
 use crate::config::load_or_create_config;
 use crate::auth::get_tokens;
@@ -82,6 +83,273 @@ async fn set_public_permission(file_id: &str, access_token: &str) -> Result<(), 
         return Err("Falha ao definir permissões do arquivo".to_string());
     }
     Ok(())
+}
+
+async fn initiate_resumable_session(
+    client: &reqwest::Client,
+    access_token: &str,
+    file_name: &str,
+    folder_id: &str,
+    file_size: u64,
+    mime_type: &str,
+) -> Result<String, String> {
+    let metadata = serde_json::json!({
+        "name": file_name,
+        "parents": [folder_id],
+    });
+
+    let response = client
+        .post("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name,webViewLink")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("Content-Type", "application/json")
+        .header("X-Upload-Content-Type", mime_type)
+        .header("X-Upload-Content-Length", file_size.to_string())
+        .json(&metadata)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to initiate resumable session: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "Resumable session initiation failed: {} - {}",
+            status, body
+        ));
+    }
+
+    response
+        .headers()
+        .get("Location")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .ok_or_else(|| "No Location header in resumable upload response".to_string())
+}
+
+async fn upload_chunk_with_retry(
+    client: &reqwest::Client,
+    session_uri: &str,
+    chunk: &[u8],
+    start: u64,
+    total: u64,
+    max_retries: u32,
+) -> Result<reqwest::Response, String> {
+    let end = start + chunk.len() as u64 - 1;
+    let content_range = format!("bytes {}-{}/{}", start, end, total);
+
+    for attempt in 0..=max_retries {
+        let result = client
+            .put(session_uri)
+            .header("Content-Range", &content_range)
+            .header("Content-Length", chunk.len().to_string())
+            .body(chunk.to_vec())
+            .send()
+            .await;
+
+        match result {
+            Ok(response) => {
+                let status = response.status().as_u16();
+                if status == 200 || status == 201 || status == 308 {
+                    return Ok(response);
+                }
+                if attempt == max_retries {
+                    let body = response.text().await.unwrap_or_default();
+                    return Err(format!(
+                        "Chunk upload failed with status {} after {} retries: {}",
+                        status, max_retries, body
+                    ));
+                }
+                // Query session status before retry so Google can confirm bytes received
+                let _ = client
+                    .put(session_uri)
+                    .header("Content-Range", format!("bytes */{}", total))
+                    .header("Content-Length", "0")
+                    .send()
+                    .await;
+            }
+            Err(e) => {
+                if attempt == max_retries {
+                    return Err(format!(
+                        "Chunk upload network error after {} retries: {}",
+                        max_retries, e
+                    ));
+                }
+            }
+        }
+        tokio::time::sleep(tokio::time::Duration::from_secs(2u64.pow(attempt))).await;
+    }
+
+    unreachable!()
+}
+
+async fn upload_resumable(
+    window: &tauri::Window,
+    file_path: &str,
+    file_name: &str,
+    folder_id: &str,
+    access_token: &str,
+) -> Result<DriveFile, String> {
+    let metadata = tokio::fs::metadata(file_path)
+        .await
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?;
+    let file_size = metadata.len();
+    let mime_type = mime_type_for(file_name);
+
+    let client = reqwest::Client::new();
+    let session_uri =
+        initiate_resumable_session(&client, access_token, file_name, folder_id, file_size, mime_type)
+            .await?;
+
+    let mut file = tokio::fs::File::open(file_path)
+        .await
+        .map_err(|e| format!("Failed to open file: {}", e))?;
+
+    const CHUNK_SIZE: u64 = 8 * 1024 * 1024; // 8MB
+    let mut bytes_sent: u64 = 0;
+    let mut speed_history: Vec<f64> = Vec::new();
+
+    let _ = window.emit(
+        "upload-progress",
+        UploadProgressEvent {
+            file_name: file_name.to_string(),
+            bytes_sent: 0,
+            total_bytes: file_size,
+            percent: 0,
+            speed_bps: 0,
+        },
+    );
+
+    loop {
+        let chunk_size = std::cmp::min(CHUNK_SIZE, file_size - bytes_sent) as usize;
+        let mut chunk = vec![0u8; chunk_size];
+        file.read_exact(&mut chunk)
+            .await
+            .map_err(|e| format!("Failed to read chunk at offset {}: {}", bytes_sent, e))?;
+
+        let chunk_start = std::time::Instant::now();
+
+        let response =
+            upload_chunk_with_retry(&client, &session_uri, &chunk, bytes_sent, file_size, 3)
+                .await?;
+
+        let elapsed = chunk_start.elapsed().as_secs_f64().max(0.001);
+        let speed = chunk_size as f64 / elapsed;
+        speed_history.push(speed);
+        if speed_history.len() > 3 {
+            speed_history.remove(0);
+        }
+        let avg_speed = speed_history.iter().sum::<f64>() / speed_history.len() as f64;
+
+        bytes_sent += chunk_size as u64;
+        let percent = ((bytes_sent as f64 / file_size as f64) * 100.0) as u32;
+
+        let _ = window.emit(
+            "upload-progress",
+            UploadProgressEvent {
+                file_name: file_name.to_string(),
+                bytes_sent,
+                total_bytes: file_size,
+                percent,
+                speed_bps: avg_speed as u64,
+            },
+        );
+
+        let status = response.status().as_u16();
+        if status == 200 || status == 201 {
+            let drive_file: DriveFile = response
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse upload response: {}", e))?;
+            return Ok(drive_file);
+        }
+        // 308 Resume Incomplete — continue to next chunk
+        if bytes_sent >= file_size {
+            return Err("Upload finished reading file but server did not return 200/201".to_string());
+        }
+    }
+}
+
+async fn upload_multipart(
+    window: &tauri::Window,
+    file_content: Vec<u8>,
+    file_name: &str,
+    folder_id: &str,
+    access_token: &str,
+) -> Result<DriveFile, String> {
+    let client = reqwest::Client::new();
+    let mime_type = mime_type_for(file_name);
+
+    let metadata = serde_json::json!({
+        "name": file_name,
+        "parents": [folder_id],
+    });
+
+    let boundary = "cloudtray_boundary_abc123";
+    let metadata_part = format!(
+        "--{}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n{}\r\n",
+        boundary,
+        serde_json::to_string(&metadata).unwrap()
+    );
+    let file_part = format!(
+        "--{}\r\nContent-Type: {}\r\n\r\n",
+        boundary, mime_type
+    );
+    let end_boundary = format!("\r\n--{}--", boundary);
+
+    let _ = window.emit(
+        "upload-progress",
+        UploadProgressEvent {
+            file_name: file_name.to_string(),
+            bytes_sent: 0,
+            total_bytes: file_content.len() as u64,
+            percent: 10,
+            speed_bps: 0,
+        },
+    );
+
+    let mut body = Vec::new();
+    body.extend_from_slice(metadata_part.as_bytes());
+    body.extend_from_slice(file_part.as_bytes());
+    body.extend_from_slice(&file_content);
+    body.extend_from_slice(end_boundary.as_bytes());
+
+    let _ = window.emit(
+        "upload-progress",
+        UploadProgressEvent {
+            file_name: file_name.to_string(),
+            bytes_sent: file_content.len() as u64 / 2,
+            total_bytes: file_content.len() as u64,
+            percent: 50,
+            speed_bps: 0,
+        },
+    );
+
+    let response = client
+        .post("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header(
+            "Content-Type",
+            format!("multipart/related; boundary={}", boundary),
+        )
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let _ = window.emit(
+        "upload-progress",
+        UploadProgressEvent {
+            file_name: file_name.to_string(),
+            bytes_sent: file_content.len() as u64,
+            total_bytes: file_content.len() as u64,
+            percent: 100,
+            speed_bps: 0,
+        },
+    );
+
+    let response_text = response.text().await.map_err(|e| e.to_string())?;
+    serde_json::from_str::<DriveFile>(&response_text)
+        .map_err(|_| format!("Failed to parse upload response: {}", response_text))
 }
 
 #[command]
