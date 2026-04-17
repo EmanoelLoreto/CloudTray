@@ -54,7 +54,7 @@
         "decorations": false,
         "focus": false,
         "transparent": true,
-        "fileDropEnabled": false,
+        "fileDropEnabled": true,
         "width": 280,
         "height": 360,
         "skipTaskbar": true,
