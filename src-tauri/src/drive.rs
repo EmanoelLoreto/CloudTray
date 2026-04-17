@@ -33,6 +33,31 @@ pub struct DriveFile {
 	pub web_view_link: String,
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct UploadProgressEvent {
+    pub file_name: String,
+    pub bytes_sent: u64,
+    pub total_bytes: u64,
+    pub percent: u32,
+    pub speed_bps: u64,
+}
+
+fn mime_type_for(file_name: &str) -> &'static str {
+    let lower = file_name.to_lowercase();
+    if lower.ends_with(".png") { "image/png" }
+    else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") { "image/jpeg" }
+    else if lower.ends_with(".gif") { "image/gif" }
+    else if lower.ends_with(".webp") { "image/webp" }
+    else if lower.ends_with(".svg") { "image/svg+xml" }
+    else if lower.ends_with(".mp4") { "video/mp4" }
+    else if lower.ends_with(".mov") { "video/quicktime" }
+    else if lower.ends_with(".avi") { "video/x-msvideo" }
+    else if lower.ends_with(".mkv") { "video/x-matroska" }
+    else if lower.ends_with(".mp3") { "audio/mpeg" }
+    else if lower.ends_with(".pdf") { "application/pdf" }
+    else { "application/octet-stream" }
+}
+
 #[command]
 pub async fn get_or_create_app_folder(credentials: State<'_, GoogleCredentials>) -> Result<DriveFolder, String> {
 	let tokens = get_tokens(credentials).await?;
@@ -249,16 +274,14 @@ pub async fn list_recent_files(credentials: State<'_, GoogleCredentials>) -> Res
 
 	let tokens = get_tokens(credentials.clone()).await?;
 	let client = reqwest::Client::new();
-	
+
 	let mut headers = HeaderMap::new();
 	headers.insert(
-		AUTHORIZATION, 
-		HeaderValue::from_str(&format!("Bearer {}", tokens.access_token)).unwrap()
+		AUTHORIZATION,
+		HeaderValue::from_str(&format!("Bearer {}", tokens.access_token)).unwrap(),
 	);
 
-	let app_folder = get_or_create_app_folder(credentials).await?;
-	
-	let query = format!("'{}' in parents and trashed = false", app_folder.id);
+	let query = format!("'{}' in parents and trashed = false", folder.id);
 	
 	let response = client
 		.get("https://www.googleapis.com/drive/v3/files")
