@@ -58,6 +58,32 @@ fn mime_type_for(file_name: &str) -> &'static str {
     else { "application/octet-stream" }
 }
 
+async fn set_public_permission(file_id: &str, access_token: &str) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        AUTHORIZATION,
+        HeaderValue::from_str(&format!("Bearer {}", access_token)).unwrap(),
+    );
+    let permission_body = serde_json::json!({ "role": "reader", "type": "anyone" });
+
+    let response = client
+        .post(&format!(
+            "https://www.googleapis.com/drive/v3/files/{}/permissions",
+            file_id
+        ))
+        .headers(headers)
+        .json(&permission_body)
+        .send()
+        .await
+        .map_err(|e| format!("Erro ao definir permissões: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err("Falha ao definir permissões do arquivo".to_string());
+    }
+    Ok(())
+}
+
 #[command]
 pub async fn get_or_create_app_folder(credentials: State<'_, GoogleCredentials>) -> Result<DriveFolder, String> {
 	let tokens = get_tokens(credentials).await?;
