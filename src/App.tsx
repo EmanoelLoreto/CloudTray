@@ -244,6 +244,7 @@ const App = () => {
 				setIsAuthenticated(true);
 				isAuthenticatedRef.current = true;
 				setCheckingAuth(false);
+				invoke("cleanup_old_files").catch(() => {});
 			} catch (error) {
 				setIsAuthenticated(false);
 				isAuthenticatedRef.current = false;

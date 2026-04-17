@@ -164,6 +164,7 @@ fn main() {
             auth::logout,
             drive::get_or_create_app_folder,
             drive::upload_file_path,
+            drive::cleanup_old_files,
             drive::list_recent_files,
             drive::delete_file,
             config::load_or_create_config,

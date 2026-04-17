@@ -480,6 +480,12 @@ pub async fn upload_file_path(
 }
 
 #[command]
+pub async fn cleanup_old_files(credentials: State<'_, GoogleCredentials>) -> Result<(), String> {
+    let folder = get_or_create_app_folder(credentials.clone()).await?;
+    delete_old_files(&folder.id, credentials).await
+}
+
+#[command]
 pub async fn list_recent_files(credentials: State<'_, GoogleCredentials>) -> Result<Vec<DriveFile>, String> {
 	let folder = get_or_create_app_folder(credentials.clone()).await?;
 
