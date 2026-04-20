@@ -36,6 +36,7 @@ interface FileProgress {
     percent: number;
     speed_bps: number;
     error?: boolean;
+    cancelled?: boolean;
 }
 
 interface UploadProgress {
@@ -80,6 +81,10 @@ const App = () => {
 
 	const isUploading = Object.keys(uploadProgress).length > 0;
 
+	const handleCancelUpload = (fileName: string) => {
+		invoke("cancel_upload", { fileName });
+	};
+
 	const uploadFiles = async (filePaths: string[]) => {
         let unlisten: (() => void) | undefined;
         try {
@@ -104,17 +109,18 @@ const App = () => {
             let lastResult: DriveFile | undefined;
 
             for (const filePath of filePaths) {
+                const name = filePath.split(/[/\\]/).pop() || filePath;
                 try {
                     const result = await invoke<DriveFile>("upload_file_path", {
                         filePath,
                         folderId: appFolder.id,
                     });
                     if (isSingleFile) lastResult = result;
-                } catch {
-                    const name = filePath.split(/[/\\]/).pop() || filePath;
+                } catch (err) {
+                    const wasCancelled = String(err).includes('cancelled');
                     setUploadProgress(prev => ({
                         ...prev,
-                        [name]: { ...prev[name], error: true },
+                        [name]: { ...prev[name], ...(wasCancelled ? { cancelled: true } : { error: true }) },
                     }));
                 }
             }
@@ -342,20 +348,30 @@ const App = () => {
 								<div className="container-upload-files">
 									{Object.entries(uploadProgress).map(([fileName, progress]) => (
 										<div key={fileName} className="upload-progress">
-											<span className="filename">
-												{fileName.length > 24 ? fileName.slice(0, 24) + '...' : fileName}
-											</span>
+											<div className="upload-progress-header">
+												<span className="filename">
+													{fileName.length > 24 ? fileName.slice(0, 24) + '...' : fileName}
+												</span>
+												{!progress.error && !progress.cancelled && progress.percent < 100 && (
+													<button
+														className="cancel-upload-btn"
+														onClick={() => handleCancelUpload(fileName)}
+														title="Cancelar"
+													>✕</button>
+												)}
+											</div>
 											<div className="progress-bar">
 												<div
 													className={`progress-fill ${
 														progress.error ? 'error' :
+														progress.cancelled ? 'cancelled' :
 														progress.percent >= 100 ? 'success' :
 														progress.percent === 0 ? 'indeterminate' : ''
 													}`}
-													style={{ width: progress.percent === 0 ? '100%' : `${progress.percent}%` }}
+													style={{ width: progress.percent === 0 || progress.cancelled ? '100%' : `${progress.percent}%` }}
 												/>
 											</div>
-											{progress.total_bytes > 0 && progress.percent < 100 && !progress.error && (
+											{progress.total_bytes > 0 && progress.percent < 100 && !progress.error && !progress.cancelled && (
 												<div className="progress-info">
 													<span>{progress.percent}%</span>
 													<span>{formatSpeed(progress.speed_bps)}</span>

@@ -9,6 +9,7 @@ use crate::auth::get_tokens;
 use tauri::command;
 use tauri::State;
 use crate::GoogleCredentials;
+use crate::CancellationSet;
 
 const APP_FOLDER_NAME: &str = "CloudTray";
 
@@ -188,6 +189,7 @@ async fn upload_resumable(
     file_name: &str,
     folder_id: &str,
     access_token: &str,
+    cancellation: &CancellationSet,
 ) -> Result<DriveFile, String> {
     let metadata = tokio::fs::metadata(file_path)
         .await
@@ -225,6 +227,10 @@ async fn upload_resumable(
     );
 
     loop {
+        if cancellation.cancelled.lock().unwrap().remove(file_name) {
+            return Err("cancelled".to_string());
+        }
+
         let chunk_size = std::cmp::min(CHUNK_SIZE, file_size - bytes_sent) as usize;
         let mut chunk = vec![0u8; chunk_size];
         file.read_exact(&mut chunk)
@@ -447,6 +453,7 @@ pub async fn upload_file_path(
     file_path: String,
     folder_id: String,
     credentials: State<'_, GoogleCredentials>,
+    cancellation: State<'_, CancellationSet>,
 ) -> Result<DriveFile, String> {
     let tokens_fut = get_tokens(credentials.clone());
     let delete_fut = delete_old_files(&folder_id, credentials.clone());
@@ -467,7 +474,7 @@ pub async fn upload_file_path(
     const RESUMABLE_THRESHOLD: u64 = 5 * 1024 * 1024; // 5MB
 
     let file = if file_size >= RESUMABLE_THRESHOLD {
-        upload_resumable(&window, &file_path, &file_name, &folder_id, &tokens.access_token).await?
+        upload_resumable(&window, &file_path, &file_name, &folder_id, &tokens.access_token, &cancellation).await?
     } else {
         let file_content = tokio::fs::read(&file_path)
             .await
@@ -477,6 +484,12 @@ pub async fn upload_file_path(
 
     set_public_permission(&file.id, &tokens.access_token).await?;
     Ok(file)
+}
+
+#[command]
+pub async fn cancel_upload(file_name: String, cancellation: State<'_, CancellationSet>) -> Result<(), String> {
+    cancellation.cancelled.lock().unwrap().insert(file_name);
+    Ok(())
 }
 
 #[command]

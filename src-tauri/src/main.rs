@@ -20,11 +20,16 @@ use window_shadows::set_shadow;
 use tauri_plugin_positioner::{WindowExt, Position};
 
 use std::sync::Mutex;
+use std::collections::HashSet;
 use tauri::State;
 
 struct GoogleCredentials {
     client_id: Mutex<String>,
     client_secret: Mutex<String>,
+}
+
+pub struct CancellationSet {
+    pub cancelled: Mutex<HashSet<String>>,
 }
 
 #[tauri::command]
@@ -41,6 +46,10 @@ fn main() {
     let google_credentials = GoogleCredentials {
         client_id: Mutex::new(String::new()),
         client_secret: Mutex::new(String::new()),
+    };
+
+    let cancellation_set = CancellationSet {
+        cancelled: Mutex::new(HashSet::new()),
     };
 
     #[cfg(target_os = "macos")]
@@ -164,6 +173,7 @@ fn main() {
             auth::logout,
             drive::get_or_create_app_folder,
             drive::upload_file_path,
+            drive::cancel_upload,
             drive::cleanup_old_files,
             drive::list_recent_files,
             drive::delete_file,
@@ -171,6 +181,7 @@ fn main() {
             config::save_config,
         ])
         .manage(google_credentials)
+        .manage(cancellation_set)
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

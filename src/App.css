@@ -190,12 +190,36 @@ html, body, #root {
     width: 100%;
 }
 
+.upload-progress-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 3px;
+}
+
 .filename {
     font-size: 13px;
-    margin-bottom: 3px;
-    display: block;
     color: #9f9f9f;
     text-align: left;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cancel-upload-btn {
+    background: none;
+    border: none;
+    color: #6e6e6e;
+    font-size: 10px;
+    padding: 0 0 0 6px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.15s;
+}
+
+.cancel-upload-btn:hover {
+    color: #e74c3c;
 }
 
 .progress-bar {
@@ -220,6 +244,11 @@ html, body, #root {
 
 .progress-fill.error {
     background-color: #e74c3c;
+}
+
+.progress-fill.cancelled {
+    background-color: rgba(255, 255, 255, 0.15);
+    width: 100% !important;
 }
 
 .progress-fill.indeterminate {
