@@ -105,9 +105,8 @@ jobs:
       - name: upload Linux assets to release
         # gh is pre-installed on ubuntu-22.04 runners
         run: |
-          gh release upload "${{ github.ref_name }}" \
-            src-tauri/target/release/bundle/deb/*.deb \
-            src-tauri/target/release/bundle/appimage/*.AppImage \
-            --clobber
+          find src-tauri/target/release/bundle \
+            \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \) \
+            -exec gh release upload "${{ github.ref_name }}" {} --clobber \;
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
