@@ -84,6 +84,9 @@ jobs:
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: enable yarn
+        run: corepack enable
+
       - name: install frontend dependencies
         run: yarn install
         env:
